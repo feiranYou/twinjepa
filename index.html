@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TwinJEPA — Action-Preferred Predictive Representations for Goal-Conditioned Control</title>
+  <meta name="description" content="TwinJEPA learns temporal action preferences on top of TD-JEPA for offline goal-conditioned control on OGBench AntMaze, ExORL Quadruped and Cheetah, DMC Walker, and D4RL Maze2D." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=29" />
+  <script>document.documentElement.classList.add("gbar-js");</script>
+</head>
+<body>
+  <header class="site-nav">
+    <a class="brand-mark" href="#top">TwinJEPA</a>
+    <nav>
+      <a href="#method">Method</a>
+      <a href="#demos">Demos</a>
+      <a href="#results">Results</a>
+      <a href="#ablations">Ablations</a>
+      <a href="#cite">Cite</a>
+    </nav>
+    <div class="nav-actions">
+      <a class="btn solid" href="https://arxiv.org/abs/2610.02922" target="_blank" rel="noopener">arXiv</a>
+      <a class="btn ghost" href="https://arxiv.org/abs/2510.00739" target="_blank" rel="noopener">TD-JEPA</a>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-media" aria-hidden="true">
+        <div class="hero-mosaic">
+          <figure class="maze labeled">
+            <img src="assets/figures/hero_tiles/antmaze_0.png?v=3" alt="" />
+            <figcaption>AntMaze</figcaption>
+          </figure>
+          <figure class="labeled">
+            <img src="assets/figures/hero_tiles/maze2d_0.png?v=3" alt="" />
+            <figcaption>Maze2D</figcaption>
+          </figure>
+          <figure class="labeled">
+            <img src="assets/figures/hero_tiles/walker_0.png?v=3" alt="" />
+            <figcaption>Walker</figcaption>
+          </figure>
+          <figure class="labeled">
+            <img src="assets/figures/hero_tiles/cheetah_0.png?v=3" alt="" />
+            <figcaption>Cheetah</figcaption>
+          </figure>
+          <figure class="labeled eyes">
+            <img src="assets/figures/hero_tiles/quadruped_0.png?v=3" alt="" />
+            <figcaption>Quadruped</figcaption>
+          </figure>
+
+          <figure class="maze"><img src="assets/figures/hero_tiles/antmaze_1.png?v=3" alt="" /></figure>
+          <figure><img src="assets/figures/hero_tiles/maze2d_1.png?v=3" alt="" /></figure>
+          <figure><img src="assets/figures/hero_tiles/walker_1.png?v=3" alt="" /></figure>
+          <figure><img src="assets/figures/hero_tiles/cheetah_1.png?v=3" alt="" /></figure>
+          <figure class="eyes"><img src="assets/figures/hero_tiles/quadruped_1.png?v=3" alt="" /></figure>
+
+          <figure class="maze"><img src="assets/figures/hero_tiles/antmaze_2.png?v=3" alt="" /></figure>
+          <figure><img src="assets/figures/hero_tiles/maze2d_2.png?v=3" alt="" /></figure>
+          <figure><img src="assets/figures/hero_tiles/walker_2.png?v=3" alt="" /></figure>
+          <figure><img src="assets/figures/hero_tiles/cheetah_2.png?v=3" alt="" /></figure>
+          <figure class="eyes"><img src="assets/figures/hero_tiles/quadruped_2.png?v=3" alt="" /></figure>
+        </div>
+        <div class="hero-scrim"></div>
+      </div>
+      <div class="hero-copy">
+        <p class="eyebrow">arXiv:2610.02922 · The University of Hong Kong · OGBench · DMC · ExORL · D4RL</p>
+        <h1>TwinJEPA</h1>
+        <p class="byline">Feiran You · Hongyang Du<span>The University of Hong Kong</span></p>
+        <p class="lede">
+          Action-preferred predictive representations for goal-conditioned control.
+          TwinJEPA keeps the TD-JEPA backbone and adds offline-mined reward-gap
+          and preference supervision, with no extra cost at inference.
+        </p>
+        <div class="cta-row">
+          <a class="btn solid" href="https://arxiv.org/abs/2610.02922" target="_blank" rel="noopener">Read the paper</a>
+          <a class="btn ghost" href="#demos">Watch demos</a>
+          <a class="btn ghost" href="#results">See results</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="strip five">
+      <div>
+        <strong>ExORL Quadruped</strong>
+        <span>559 → <em>600</em> <small class="pos">+40.4</small></span>
+      </div>
+      <div>
+        <strong>ExORL Cheetah</strong>
+        <span>638 → <em>671</em> <small class="pos">+33.7</small></span>
+      </div>
+      <div>
+        <strong>Walker Fixed-HP</strong>
+        <span>774 → <em>783</em> <small class="pos">+8.4</small></span>
+      </div>
+      <div>
+        <strong>Maze2D Fixed-HP</strong>
+        <span>9.2% → <em>14.4%</em> <small class="pos">+5.2</small></span>
+      </div>
+      <div>
+        <strong>AntMaze mn</strong>
+        <span>68.8% → <em>73.2%</em> <small class="pos">+4.4</small></span>
+      </div>
+    </section>
+
+    <section id="abstract" class="block">
+      <h2>Abstract</h2>
+      <p>
+        Goal-conditioned policies from offline data must decide among actions that look
+        similar in state space but lead to different futures. TwinJEPA keeps the official
+        TD-JEPA trunk and adds a temporal action-preference auxiliary: from counterfactual
+        pairs that share an anchor observation, two small heads predict the return gap
+        <code>ΔV</code> and the preferred action. The training objective is
+        <code>L = L<sub>TD-JEPA</sub> + λ · (α<sub>gap</sub> L<sub>gap</sub> + α<sub>pref</sub> L<sub>pref</sub>)</code>
+        with default <code>λ = 0.1</code>, <code>α<sub>gap</sub> = 1</code>,
+        <code>α<sub>pref</sub> = 0.5</code>.
+        The primary claim is OGBench AntMaze under a shared Fixed-HP budget
+        (<code>ψ<sub>ortho</sub> = 0.1</code>, <code>lr<sub>ψ</sub> = 10<sup>−4</sup></code>,
+        10 paired seeds, 1M steps). Additional checks cover ExORL Quadruped and Cheetah,
+        DMC Walker, D4RL Maze2D, and the same ExORL domains from 64×64 pixels.
+      </p>
+    </section>
+
+    <section id="method" class="block method">
+      <h2>How TwinJEPA works</h2>
+      <figure class="wide-fig overview">
+        <div class="overview-plate">
+          <img src="assets/figures/fig1_overview.png?v=2" alt="Figure 1 of TwinJEPA. Panel A is the TD-JEPA temporal prediction trunk. Panel B mines action-diverse pairs and trains reward-gap and preference heads. Panel C shows the shared representation loss." />
+        </div>
+        <figcaption><b>Fig.&nbsp;1.</b> A: a temporal-prediction objective learns goal-conditioned structure but does not compare alternative actions in similar states. B: TwinJEPA mines action-diverse pairs from local neighborhoods and derives reward-gap and preference targets. C: both signals train one shared representation. The auxiliary heads are used only during training.</figcaption>
+      </figure>
+      <div class="method-grid">
+        <article>
+          <span class="step">01</span>
+          <h3>TD-JEPA trunk unchanged</h3>
+          <p>Encoders, multi-step predictor, orthogonal regularizers, and FlowBC actor match Official TD-JEPA. Only the auxiliary switch is on.</p>
+        </article>
+        <article>
+          <span class="step">02</span>
+          <h3>Counterfactual action pairs</h3>
+          <p>Offline pairs share an anchor state and two actions. The preferred branch is the one with higher goal-conditioned value, exposing local action discrimination.</p>
+        </article>
+        <article>
+          <span class="step">03</span>
+          <h3>Temporal preferences</h3>
+          <p>A gap head regresses ΔV and a preference head classifies the better action, so the latent keeps action-sensitive structure for goal reaching—not only one-step prediction.</p>
+        </article>
+      </div>
+
+      <div class="mstage twin-geom-stage">
+        <div class="mstage-text">
+          <div class="mstage-kicker"><span class="mstage-num">C</span> Latent space geometry</div>
+          <h3>Twin expands action-relevant structure</h3>
+          <p>
+            TD-JEPA keeps trajectory points on a smooth manifold with temporal consistency,
+            but nearby states that lead to different futures stay poorly separated.
+            TwinJEPA adds pairwise action-preference supervision so the shared latent
+            expands into action-relevant regions with different goal-conditioned outcomes.
+          </p>
+          <div class="micro-note">
+            <div class="mn-icon">Δ</div>
+            <p><strong>Reading the animation.</strong> Watch the twin process unfold:
+            a counterfactual pair appears → action-diverse links are mined →
+            <code>h<sub>gap</sub></code> / <code>h<sub>pref</sub></code> score ΔV and preference →
+            the latent expands into Region&nbsp;A / B → futures diverge and local
+            discriminability rises (inference unchanged).</p>
+          </div>
+        </div>
+        <div class="mstage-media">
+          <figure class="figure twin-geom-fig">
+            <div class="twin-geom-wrap">
+              <div class="twin-steplabel" id="twin-step" aria-live="polite">
+                <span class="twin-step-num">01</span>
+                <span class="twin-step-body">
+                  <span class="twin-step-meta">Step 1 / 6</span>
+                  <span class="twin-step-title">TD-JEPA only</span>
+                </span>
+              </div>
+              <canvas id="twin-geom" width="1280" height="720" aria-label="Animated latent space geometry: TwinJEPA expands a smooth manifold into action-relevant regions A and B"></canvas>
+              <div class="twin-axis twin-axis-x">dim 1</div>
+              <div class="twin-axis twin-axis-y">dim 2</div>
+            </div>
+            <figcaption><b>Fig.&nbsp;1-C.</b> Continuous view of TwinJEPA’s geometric expansion: preserve trajectory-level temporal consistency while separating action-relevant regions for local preference discrimination.</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <figure class="wide-fig">
+        <img src="assets/figures/envs_all.png?v=3" alt="Evaluation environments: AntMaze, Maze2D, Walker, Cheetah, Quadruped" />
+        <figcaption>Five environments, multiple viewpoints: OGBench AntMaze, D4RL Maze2D, DMC Walker, ExORL Cheetah, ExORL Quadruped.</figcaption>
+      </figure>
+    </section>
+
+    <section id="demos" class="block demos">
+      <h2>Fail vs success</h2>
+      <p class="section-lede">
+        Same eval task, two live simulator clips: a failure on the left and a success on the right.
+        Ordered by matched Fixed-HP lift in the paper
+        (Quadruped +40.4 → Cheetah +33.7 → Walker +8.4 → Maze2D +5.2 → AntMaze mn +4.4).
+        Maze domains use goal-reaching (distance ≤ 0.5). DMC / ExORL use low vs high stored task return.
+        Clips are scored dataset trajectories replayed in MuJoCo / Gymnasium — not random rollouts.
+      </p>
+      <p><a class="btn ghost" href="downloads/TwinJEPA_PPT_videos.zip">Download videos for PowerPoint</a></p>
+      <article class="demo-pair">
+        <header>
+          <h3>ExORL Quadruped · stand</h3>
+          <button type="button" class="btn ghost play-pair">Play both</button>
+        </header>
+        <div class="compare-row">
+          <figure class="demo-card fail">
+            <span class="badge fail">Low return</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/quadruped_fail_poster.png">
+              <source src="assets/demos/quadruped_fail.mp4" type="video/mp4" />
+            </video>
+            <figcaption>Low stand return — collapsed / unstable.</figcaption>
+          </figure>
+          <figure class="demo-card success">
+            <span class="badge success">High return</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/quadruped_success_poster.png">
+              <source src="assets/demos/quadruped_success.mp4" type="video/mp4" />
+            </video>
+            <figcaption>High stand return — upright torso.</figcaption>
+          </figure>
+        </div>
+      </article>
+
+      <article class="demo-pair">
+        <header>
+          <h3>ExORL Cheetah · run</h3>
+          <button type="button" class="btn ghost play-pair">Play both</button>
+        </header>
+        <div class="compare-row">
+          <figure class="demo-card fail">
+            <span class="badge fail">Low return</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/cheetah_fail_poster.png">
+              <source src="assets/demos/cheetah_fail.mp4" type="video/mp4" />
+            </video>
+            <figcaption>Low run return (little / backward progress).</figcaption>
+          </figure>
+          <figure class="demo-card success">
+            <span class="badge success">High return</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/cheetah_success_poster.png">
+              <source src="assets/demos/cheetah_success.mp4" type="video/mp4" />
+            </video>
+            <figcaption>High run return — forward locomotion.</figcaption>
+          </figure>
+        </div>
+      </article>
+
+      <article class="demo-pair">
+        <header>
+          <h3>DMC Walker · walk</h3>
+          <button type="button" class="btn ghost play-pair">Play both</button>
+        </header>
+        <div class="compare-row">
+          <figure class="demo-card fail">
+            <span class="badge fail">Low return</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/walker_fail_poster.png">
+              <source src="assets/demos/walker_fail.mp4" type="video/mp4" />
+            </video>
+            <figcaption>Low walk return from the RND buffer.</figcaption>
+          </figure>
+          <figure class="demo-card success">
+            <span class="badge success">High return</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/walker_success_poster.png">
+              <source src="assets/demos/walker_success.mp4" type="video/mp4" />
+            </video>
+            <figcaption>High walk return — upright forward gait.</figcaption>
+          </figure>
+        </div>
+      </article>
+
+      <article class="demo-pair">
+        <header>
+          <h3>D4RL Maze2D · medium · task1</h3>
+          <button type="button" class="btn ghost play-pair">Play both</button>
+        </header>
+        <div class="compare-row">
+          <figure class="demo-card fail">
+            <span class="badge fail">Fail</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/maze2d_fail_poster.png">
+              <source src="assets/demos/maze2d_fail.mp4" type="video/mp4" />
+            </video>
+            <figcaption>Stays far from cell (1, 1); goal marker stays on.</figcaption>
+          </figure>
+          <figure class="demo-card success">
+            <span class="badge success">Success</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/maze2d_success_poster.png">
+              <source src="assets/demos/maze2d_success.mp4" type="video/mp4" />
+            </video>
+            <figcaption>Enters the task-1 goal cell.</figcaption>
+          </figure>
+        </div>
+      </article>
+
+      <article class="demo-pair">
+        <header>
+          <h3>OGBench AntMaze · medium-navigate · task1</h3>
+          <button type="button" class="btn ghost play-pair">Play both</button>
+        </header>
+        <div class="compare-row">
+          <figure class="demo-card fail">
+            <span class="badge fail">Fail</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/antmaze_fail_poster.png">
+              <source src="assets/demos/antmaze_fail.mp4" type="video/mp4" />
+            </video>
+            <figcaption>Never reaches the task-1 goal.</figcaption>
+          </figure>
+          <figure class="demo-card success">
+            <span class="badge success">Success</span>
+            <video controls playsinline muted loop preload="metadata" poster="assets/demos/antmaze_success_poster.png">
+              <source src="assets/demos/antmaze_success.mp4" type="video/mp4" />
+            </video>
+            <figcaption>Reaches the task-1 goal (windowed around first hit).</figcaption>
+          </figure>
+        </div>
+      </article>
+    </section>
+
+    <section id="results" class="block results">
+      <h2>Main results</h2>
+      <p class="section-lede">
+        Largest matched Fixed-HP lifts: Quadruped <strong class="pos">+40.4</strong>
+        (walk +72.1), Cheetah <strong class="pos">+33.7</strong> (walk +70.7, run +56.7),
+        Walker <strong class="pos">+8.4</strong> on stand/run headroom,
+        AntMaze mn <strong class="pos">+4.4</strong> (hard T3 +17; λ=0.5 reaches 78.4).
+        Maze2D Fixed-HP is a smaller boundary-case (+5.2 on reachable goals T3–T5).
+        From pixels, Walker stand is the largest single-task lift
+        (<strong class="pos">+103.2</strong>, 784 → 887).
+      </p>
+      <div class="highlights">
+        <a href="#xfer-quadruped" data-jump-tab="transfer">
+          <strong>Quadruped · 5 seeds</strong>
+          <span class="delta">+40.4</span>
+          <em>559.4 → 599.8 return</em>
+        </a>
+        <a href="#xfer-cheetah" data-jump-tab="transfer">
+          <strong>Cheetah · 10 seeds</strong>
+          <span class="delta">+33.7</span>
+          <em>638.0 → 671.7 return</em>
+        </a>
+        <a href="#xfer-walker" data-jump-tab="transfer">
+          <strong>Walker · headroom</strong>
+          <span class="delta">+8.4</span>
+          <em>stand +20.6 · run +18.3</em>
+        </a>
+        <a href="#xfer-maze2d" data-jump-tab="transfer">
+          <strong>Maze2D · boundary</strong>
+          <span class="delta">+5.2</span>
+          <em>reachable T3–T5 only · grid +0.3</em>
+        </a>
+        <a href="#panel-antmaze" data-jump-tab="antmaze">
+          <strong>AntMaze mn</strong>
+          <span class="delta">+4.4</span>
+          <em>68.8% → 73.2% · T3 +17</em>
+        </a>
+      </div>
+      <figure class="stack-fig">
+        <div class="gbar" data-chart="forest" role="img"></div>
+        <figcaption><b>Fig.&nbsp;2.</b> Matched-seed mean difference and paired-bootstrap 95% interval. Diamonds are the mean; the count is seeds with a positive paired difference.</figcaption>
+      </figure>
+      <div class="fig-row figs-only">
+        <figure class="paper-fig">
+          <div class="gbar" data-chart="heatNav" role="img"></div>
+          <figcaption><b>Fig.&nbsp;3a.</b> Task-level Δ success (pp). Hard goals carry the AntMaze and Maze2D gains.</figcaption>
+        </figure>
+        <figure class="paper-fig">
+          <div class="gbar" data-chart="heatCtrl" role="img"></div>
+          <figcaption><b>Fig.&nbsp;3b.</b> Task-level Δ return. Cheetah and Quadruped concentrate the largest lifts.</figcaption>
+        </figure>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="transfer" role="tab" aria-selected="true">Transfer</button>
+        <button class="tab" data-tab="antmaze" role="tab" aria-selected="false">AntMaze</button>
+      </div>
+
+      <div class="tab-panel" id="panel-antmaze">
+        <p class="panel-note">
+          Mean ± SE success (%). Official TD-JEPA on medium-navigate sits within SE of
+          the published TD-JEPA number (68.8±4.0 vs 70.4±3.7). Paired seed wins:
+          5/10 (mn), 5/10 (ln), 6/10 (ms), 7/10 (ls).
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Domain</th><th>Official TD-JEPA</th><th>TwinJEPA</th><th>Δ</th></tr>
+            </thead>
+            <tbody>
+              <tr class="hot"><td>Medium-Navigate</td><td>68.8±4.0</td><td>73.2±3.5</td><td class="pos">+4.4</td></tr>
+              <tr class="hot"><td>Large-Stitch</td><td>37.8±2.7</td><td>41.2±3.1</td><td class="pos">+3.4</td></tr>
+              <tr><td>Large-Navigate</td><td>42.2±2.1</td><td>43.0±3.3</td><td class="pos">+0.8</td></tr>
+              <tr><td>Medium-Stitch</td><td>51.4±3.7</td><td>52.0±4.3</td><td class="pos">+0.6</td></tr>
+              <tr class="sum"><td>AntMaze-4 avg</td><td>50.1</td><td>52.4</td><td class="pos">+2.3</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="fig-row">
+          <figure class="paper-fig">
+            <img src="assets/figures/fig_mn_curves.png" alt="Medium-navigate learning curves" />
+            <figcaption>Medium-navigate curves: TwinJEPA overtakes by 500k; hard task 3 ends 49 vs 32 (+17).</figcaption>
+          </figure>
+          <figure class="paper-fig">
+            <div class="gbar" data-chart="antmaze4" role="img"></div>
+            <figcaption>Domain Fixed-HP: mn +4.4, ls +3.4, ln +0.8, ms +0.6 (avg 50.1→52.4).</figcaption>
+          </figure>
+        </div>
+        <div class="fig-row">
+          <figure class="paper-fig">
+            <div class="gbar-split">
+              <div class="gbar" data-chart="mnTasks" role="img"></div>
+              <div class="gbar gbar-h" data-chart="taskGains" role="img"></div>
+            </div>
+            <figcaption><b>Fig.&nbsp;3.</b> mn per-task + largest lifts (mn-T3, ln-T5, ms-T1, ls-T1).</figcaption>
+          </figure>
+          <figure class="paper-fig">
+            <img src="assets/figures/fig_antmaze_heatmap.png" alt="AntMaze per-task success heatmap" />
+            <figcaption><b>Fig.&nbsp;6.</b> Per-task Twin − Official (pp). Gains concentrate on hard goals.</figcaption>
+          </figure>
+        </div>
+        <h3 class="panel-h">Where the gains come from</h3>
+        <p class="panel-note">
+          The advantage is selective amplification on harder goals, not a uniform lift.
+          Medium-navigate: T3 +17, T2 +6, T5 +4, with small regressions on T1 (−2) and T4 (−3).
+          Other standouts: ln-T5 +16, ms-T1/T5 +13, ls-T1 +11. A minority of cells regress
+          (ms-T3 −18, ln-T2 −14). Domain averages stay non-negative.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Domain</th><th></th><th>T1</th><th>T2</th><th>T3</th><th>T4</th><th>T5</th><th>Avg</th></tr>
+            </thead>
+            <tbody>
+              <tr><td rowspan="3">mn</td><td>Official</td><td>81</td><td>80</td><td>32</td><td>57</td><td>94</td><td>68.8</td></tr>
+              <tr><td>TwinJEPA</td><td>79</td><td>86</td><td>49</td><td>54</td><td>98</td><td>73.2</td></tr>
+              <tr><td>Δ</td><td class="neg">−2</td><td class="pos">+6</td><td class="pos">+17</td><td class="neg">−3</td><td class="pos">+4</td><td class="pos">+4.4</td></tr>
+              <tr><td rowspan="3">ln</td><td>Official</td><td>76</td><td>39</td><td>51</td><td>16</td><td>29</td><td>42.2</td></tr>
+              <tr><td>TwinJEPA</td><td>81</td><td>25</td><td>55</td><td>9</td><td>45</td><td>43.0</td></tr>
+              <tr><td>Δ</td><td class="pos">+5</td><td class="neg">−14</td><td class="pos">+4</td><td class="neg">−7</td><td class="pos">+16</td><td class="pos">+0.8</td></tr>
+              <tr><td rowspan="3">ms</td><td>Official</td><td>52</td><td>3</td><td>59</td><td>81</td><td>62</td><td>51.4</td></tr>
+              <tr><td>TwinJEPA</td><td>65</td><td>1</td><td>41</td><td>78</td><td>75</td><td>52.0</td></tr>
+              <tr><td>Δ</td><td class="pos">+13</td><td class="neg">−2</td><td class="neg">−18</td><td class="neg">−3</td><td class="pos">+13</td><td class="pos">+0.6</td></tr>
+              <tr><td rowspan="3">ls</td><td>Official</td><td>44</td><td>18</td><td>76</td><td>47</td><td>4</td><td>37.8</td></tr>
+              <tr><td>TwinJEPA</td><td>55</td><td>15</td><td>80</td><td>45</td><td>11</td><td>41.2</td></tr>
+              <tr><td>Δ</td><td class="pos">+11</td><td class="neg">−3</td><td class="pos">+4</td><td class="neg">−2</td><td class="pos">+7</td><td class="pos">+3.4</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <h3 class="panel-h">Sample efficiency (mn)</h3>
+        <p class="panel-note">
+          Table 7: overall and easy Task 2 both hit 50% by 250k. Hard Task 3 is where Twin pulls ahead —
+          50% at 500k vs Official 750k, finishing +17.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Setting</th><th>Steps to 50% (Off / Twin)</th><th>Official @1M</th><th>Twin @1M</th><th>Δ</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>overall (5-task)</td><td>250k / 250k</td><td>68.8</td><td>73.2</td><td class="pos">+4.4</td></tr>
+              <tr class="hot"><td>task 3 (hard)</td><td>750k / 500k</td><td>32</td><td>49</td><td class="pos">+17.0</td></tr>
+              <tr><td>task 2 (easy)</td><td>250k / 250k</td><td>80</td><td>86</td><td class="pos">+6.0</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-panel active" id="panel-transfer">
+        <h3 class="panel-h" id="xfer-quadruped">ExORL Quadruped · 5 seeds</h3>
+        <p class="panel-note">
+          Largest return lift in the submitted appendix. Fixed-HP at 1M with
+          retuned <code>τ<sub>obs</sub> = 1.0</code>, mean over stand/walk/run/jump:
+          559.4±35.4 → 599.8±28.2 (<strong class="pos">+40.4</strong>).
+          Positive on all five seeds. Walk <strong class="pos">+72.1</strong>,
+          stand <strong class="pos">+49.6</strong>, run +24.8, jump +15.2.
+          Merging five extra seeds stays positive (n=10: <strong class="pos">+20.4</strong>).
+        </p>
+        <div class="fig-row">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Setting</th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr class="hot"><td>Quadruped (n=5, τ=1.0)</td><td>559.4±35.4</td><td>599.8±28.2</td><td class="pos">+40.4</td></tr>
+                <tr><td>stand</td><td>754.5±47.9</td><td>804.1±35.8</td><td class="pos">+49.6</td></tr>
+                <tr><td>walk</td><td>462.7±77.1</td><td>534.8±53.1</td><td class="pos">+72.1</td></tr>
+                <tr><td>run</td><td>384.4±23.0</td><td>409.2±19.1</td><td class="pos">+24.8</td></tr>
+                <tr><td>jump</td><td>635.9±53.2</td><td>651.1±21.4</td><td class="pos">+15.2</td></tr>
+                <tr class="sum"><td>n=10 merge (τ=1.0)</td><td>558.9±28.4</td><td>579.4±29.1</td><td class="pos">+20.4</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <figure>
+            <img src="assets/figures/demo_quad.png" alt="ExORL Quadruped stand" />
+            <figcaption>Quadruped stand/walk/run/jump — strongest appendix return lift.</figcaption>
+          </figure>
+        </div>
+        <figure class="stack-fig">
+          <div class="gbar" data-chart="quadTasks" role="img"></div>
+          <figcaption><b>Fig.&nbsp;4c.</b> All four Quadruped tasks improve. Walk is the largest lift (+72.1).</figcaption>
+        </figure>
+        <p class="panel-note">
+          Unlike Cheetah, neither head alone recovers the lift: gap-only 554.4 (−5.0) and
+          pref-only 548.4 (−10.9) vs full Twin 599.8. Both auxiliaries are required here.
+        </p>
+        <div class="fig-row">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Variant</th><th>Return @1M</th><th>Δ vs Official</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Official</td><td>559.4±35.4</td><td>—</td></tr>
+                <tr class="hot"><td>Full TwinJEPA (λ=0.1)</td><td>599.8±28.2</td><td class="pos">+40.4</td></tr>
+                <tr><td>Gap only</td><td>554.4±18.2</td><td class="neg">−5.0</td></tr>
+                <tr><td>Pref. only</td><td>548.4±26.8</td><td class="neg">−10.9</td></tr>
+                <tr><td>λ=0.05</td><td>569.2±33.6</td><td class="pos">+9.8</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Seed</th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>3502</td><td>520.8</td><td>583.1</td><td class="pos">+62.3</td></tr>
+                <tr><td>3917</td><td>612.4</td><td>634.3</td><td class="pos">+21.9</td></tr>
+                <tr><td>4729</td><td>548.5</td><td>561.1</td><td class="pos">+12.6</td></tr>
+                <tr><td>8948</td><td>574.5</td><td>608.4</td><td class="pos">+33.8</td></tr>
+                <tr><td>9460</td><td>540.5</td><td>612.0</td><td class="pos">+71.6</td></tr>
+                <tr class="sum"><td>mean</td><td>559.4</td><td>599.8</td><td class="pos">+40.4</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3 class="panel-h" id="xfer-cheetah">ExORL Cheetah · 10 seeds</h3>
+        <p class="panel-note">
+          Next-largest ExORL return lift. Fixed-HP task-mean at 1M:
+          638.0±44.2 → 671.7±24.3 (<strong class="pos">+33.7</strong>, 7/10 seeds).
+          Gains concentrate on forward locomotion: walk <strong class="pos">+70.7</strong>,
+          run <strong class="pos">+56.7</strong>; walk-backward is already saturated.
+        </p>
+        <div class="fig-row">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Task</th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr class="hot"><td>Cheetah mean (n=10)</td><td>638.0±44.2</td><td>671.7±24.3</td><td class="pos">+33.7</td></tr>
+                <tr><td>walk</td><td>892.6±89.7</td><td>963.3±42.9</td><td class="pos">+70.7</td></tr>
+                <tr><td>run</td><td>303.7±88.8</td><td>360.4±58.5</td><td class="pos">+56.7</td></tr>
+                <tr><td>run backward</td><td>371.3±22.8</td><td>378.5±18.3</td><td class="pos">+7.2</td></tr>
+                <tr><td>walk backward</td><td>984.3±0.9</td><td>984.5±0.6</td><td class="pos">+0.1</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Variant (5 seeds)</th><th>Return @1M</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Official</td><td>610.5±44.0</td></tr>
+                <tr class="hot"><td>Twin (full)</td><td>671.4±32.4</td></tr>
+                <tr><td>Gap only</td><td>654.5±34.5</td></tr>
+                <tr><td>Pref. only</td><td>629.8±37.2</td></tr>
+                <tr><td>λ=0.05</td><td>634.8±52.7</td></tr>
+                <tr><td>λ=0.5</td><td>629.5±41.7</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <figure class="stack-fig">
+          <div class="gbar" data-chart="cheetahTasks" role="img"></div>
+          <figcaption><b>Fig.&nbsp;4b.</b> Cheetah gains sit on forward walk and run. Walk-backward is already near the ceiling.</figcaption>
+        </figure>
+        <div class="fig-tri">
+          <figure class="paper-fig">
+            <div class="gbar" data-chart="cheetahAblation" role="img"></div>
+            <figcaption><b>Fig.&nbsp;11.</b> Full Twin peaks at λ=0.1.</figcaption>
+          </figure>
+          <figure class="paper-fig">
+            <div class="gbar" data-chart="cheetahSeeds" role="img"></div>
+            <figcaption><b>Fig.&nbsp;12.</b> Per-seed Δ — Twin + on 4/5.</figcaption>
+          </figure>
+        </div>
+
+        <h3 class="panel-h" id="xfer-walker">DMC Walker · 3M steps</h3>
+        <p class="panel-note">
+          Paper Fig.&nbsp;9: gains sit on tasks with headroom (stand +20.6, run +18.3).
+          Walk and spin are already near ceiling, so they dilute the 4-task mean to
+          774.3 → 782.7 (<strong class="pos">+8.4</strong>). Across the six-cell grid the
+          largest lift is <strong class="pos">+12.6</strong> at
+          (<code>ψ<sub>ortho</sub> = 0.1</code>, <code>lr<sub>ψ</sub> = 10<sup>−5</sup></code>);
+          the 30-pair aggregate is <strong class="pos">+5.8</strong>.
+        </p>
+        <div class="fig-row">
+          <figure class="paper-fig">
+            <div class="gbar" data-chart="walker" role="img"></div>
+            <figcaption>Stand/run still have room; walk/spin sit in the ≥900 band. Ceiling tasks flatten the aggregate +8.4.</figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>ψ<sub>ortho</sub></th><th>lr<sub>ψ</sub></th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>0.01</td><td>10<sup>−4</sup></td><td>779.1±8.6</td><td>779.6±8.4</td><td class="pos">+0.5</td></tr>
+                <tr><td>0.01</td><td>10<sup>−5</sup></td><td>766.2±16.7</td><td>763.7±9.0</td><td class="neg">−2.5</td></tr>
+                <tr class="hot"><td>0.1</td><td>10<sup>−4</sup></td><td>774.3±10.6</td><td>782.7±4.7</td><td class="pos">+8.4</td></tr>
+                <tr><td>0.1</td><td>10<sup>−5</sup></td><td>754.9±9.8</td><td>767.5±7.2</td><td class="pos">+12.6</td></tr>
+                <tr><td>1</td><td>10<sup>−4</sup></td><td>771.9±8.9</td><td>776.4±6.0</td><td class="pos">+4.5</td></tr>
+                <tr><td>1</td><td>10<sup>−5</sup></td><td>746.8±15.0</td><td>757.6±15.3</td><td class="pos">+10.8</td></tr>
+                <tr class="sum"><td colspan="2">Overall (30 pairs)</td><td>765.5±4.9</td><td>771.3±3.8</td><td class="pos">+5.8</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3 class="panel-h" id="xfer-maze2d">D4RL Maze2D-medium · boundary case</h3>
+        <p class="panel-note">
+          Not the headline result. Shared Fixed-HP: 9.2±2.2 → 14.4±1.7 (<strong class="pos">+5.2</strong>)
+          on already-reachable T3–T5; T1/T2 stay at zero. The 30-pair grid is nearly tied (+0.3),
+          so Maze2D is a robustness check, not a uniform win.
+        </p>
+        <div class="fig-row">
+          <figure class="paper-fig">
+            <div class="gbar" data-chart="maze2d" role="img"></div>
+            <figcaption><b>Fig.&nbsp;15.</b> Fixed-HP per-task success. T1/T2 unsolved; T3–T5 carry the domain mean.</figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>ψ<sub>ortho</sub></th><th>lr<sub>ψ</sub></th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>0.01</td><td>10<sup>−4</sup></td><td>8.8±1.9</td><td>10.8±2.9</td><td class="pos">+2.0</td></tr>
+                <tr><td>0.01</td><td>10<sup>−5</sup></td><td>11.2±1.4</td><td>13.2±2.2</td><td class="pos">+2.0</td></tr>
+                <tr class="hot"><td>0.1</td><td>10<sup>−4</sup></td><td>9.2±2.2</td><td>14.4±1.7</td><td class="pos">+5.2</td></tr>
+                <tr><td>0.1</td><td>10<sup>−5</sup></td><td>13.6±2.9</td><td>6.0±1.1</td><td class="neg">−7.6</td></tr>
+                <tr><td>1</td><td>10<sup>−4</sup></td><td>8.0±1.1</td><td>8.8±2.3</td><td class="pos">+0.8</td></tr>
+                <tr><td>1</td><td>10<sup>−5</sup></td><td>10.8±2.6</td><td>10.4±1.9</td><td class="neg">−0.4</td></tr>
+                <tr class="sum"><td colspan="2">Overall (30 pairs)</td><td>10.3±0.9</td><td>10.6±0.9</td><td class="pos">+0.3</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3 class="panel-h" id="xfer-pixels">ExORL from pixels</h3>
+        <p class="panel-note">
+          Same RND episodes, 64×64 RGB and a DrQ encoder (Fixed-HP, 2M steps).
+          The strongest pixel lift is Walker stand: 784.0 → 887.2
+          (<strong class="pos">+103.2</strong>), which carries the domain mean
+          716.6±60.0 → 741.8±35.9 (<strong class="pos">+25.3</strong>).
+          Quadruped is ahead on run, walk, and stand (domain <strong class="pos">+5.6</strong>).
+          Cheetah’s full ten-seed comparison is −8.5; a fixed five-seed diagnostic,
+          after excluding two high Official run seeds, is <strong class="pos">+4.3</strong>.
+          Unweighted domain average: 685.5 → 693.0 (<strong class="pos">+7.5</strong>).
+        </p>
+        <div class="fig-row">
+          <figure class="paper-fig">
+            <img src="assets/figures/fig_pixels_rgb.png" alt="Pixel vs state observations on ExORL domains" />
+            <figcaption><b>Fig.&nbsp;16.</b> Same episode, state vs 64×64 RGB (Walker / Cheetah / Quadruped).</figcaption>
+          </figure>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Setting</th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr class="hot"><td>Walker (n=5)</td><td>716.6±60.0</td><td>741.8±35.9</td><td class="pos">+25.3</td></tr>
+                <tr><td>Quadruped (n=5)</td><td>645.0±24.6</td><td>650.7±29.0</td><td class="pos">+5.6</td></tr>
+                <tr><td>Cheetah (n=10)</td><td>694.8±23.2</td><td>686.4±12.1</td><td class="neg">−8.5</td></tr>
+                <tr class="sum"><td>Unweighted domain avg</td><td>685.5</td><td>693.0</td><td class="pos">+7.5</td></tr>
+                <tr><td>Cheetah diagnostic (n=5)</td><td>685.1±14.7</td><td>689.4±14.9</td><td class="pos">+4.3</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="fig-row">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Walker task</th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr class="hot"><td>stand</td><td>784.0</td><td>887.2</td><td class="pos">+103.2</td></tr>
+                <tr><td>walk</td><td>811.9</td><td>815.7</td><td class="pos">+3.7</td></tr>
+                <tr><td>spin</td><td>976.9</td><td>978.1</td><td class="pos">+1.2</td></tr>
+                <tr><td>run</td><td>293.4</td><td>286.4</td><td class="neg">−7.1</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Quadruped task</th><th>Official</th><th>TwinJEPA</th><th>Δ</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>run</td><td>453.8</td><td>472.3</td><td class="pos">+18.5</td></tr>
+                <tr><td>stand</td><td>904.6</td><td>917.4</td><td class="pos">+12.9</td></tr>
+                <tr><td>walk</td><td>461.6</td><td>470.7</td><td class="pos">+9.1</td></tr>
+                <tr><td>jump</td><td>760.2</td><td>742.3</td><td class="neg">−17.9</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="ablations" class="block results">
+      <h2>Ablations</h2>
+      <p class="section-lede">
+        Same Fixed-HP / 10-seed protocol as the AntMaze main table.
+        Full TwinJEPA is the default matched setting
+        (λ=0.1, α<sub>gap</sub>=1, α<sub>pref</sub>=0.5), not the unique optimum of every variant.
+        Both auxiliary terms help; the best mixture is domain-dependent.
+      </p>
+
+      <h3 class="panel-h">Auxiliary weight λ on medium-navigate</h3>
+      <p class="panel-note">
+        All tested λ remain above Official (68.8±4.0). Default λ=0.1 reaches 73.2±3.5 (+4.4).
+        λ=0.05 and λ=0.5 are higher still (77.2±2.0 and 78.4±2.5), so 0.1 is a stable main-protocol choice rather than the uniquely best scalar on this domain.
+      </p>
+      <div class="fig-row">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Variant</th><th>Success (%)</th><th>Δ vs Official</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Official TD-JEPA</td><td>68.8±4.0</td><td>—</td></tr>
+              <tr><td>TwinJEPA (λ=0.05)</td><td>77.2±2.0</td><td class="pos">+8.4</td></tr>
+              <tr><td>TwinJEPA (λ=0.1, default)</td><td>73.2±3.5</td><td class="pos">+4.4</td></tr>
+              <tr class="sum"><td>TwinJEPA (λ=0.5)</td><td>78.4±2.5</td><td class="pos">+9.6</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th colspan="3">Medium-Navigate components</th></tr>
+              <tr><th>Variant</th><th>Success</th><th>Δ</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Official</td><td>68.8±4.0</td><td>—</td></tr>
+              <tr><td>Gap only</td><td>74.0±3.0</td><td class="pos">+5.2</td></tr>
+              <tr class="sum"><td>Pref. only</td><td>77.0±2.9</td><td class="pos">+8.2</td></tr>
+              <tr><td>Full TwinJEPA</td><td>73.2±3.5</td><td class="pos">+4.4</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="fig-row figs-only">
+        <figure class="paper-fig">
+          <div class="gbar" data-chart="mnComponents" role="img"></div>
+          <figcaption><b>Fig.&nbsp;4a.</b> Components (mn).</figcaption>
+        </figure>
+        <figure class="paper-fig">
+          <div class="gbar" data-chart="mnLambda" role="img"></div>
+          <figcaption><b>Fig.&nbsp;4b.</b> λ sensitivity (mn).</figcaption>
+        </figure>
+      </div>
+      <div class="table-wrap" style="margin-top:1rem; max-width:420px;">
+        <table>
+          <thead>
+            <tr><th colspan="3">Medium-Stitch</th></tr>
+            <tr><th>Variant</th><th>Success</th><th>Δ</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Official</td><td>51.4±3.7</td><td>—</td></tr>
+            <tr class="sum"><td>Gap only</td><td>57.4±2.4</td><td class="pos">+6.0</td></tr>
+            <tr><td>Pref. only</td><td>50.2±3.4</td><td class="neg">−1.2</td></tr>
+            <tr><td>Full TwinJEPA</td><td>52.0±4.3</td><td class="pos">+0.6</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="panel-note">
+        Preference-only is strongest on medium-navigate; gap-only is strongest on medium-stitch.
+        Default full TwinJEPA stays the shared matched setting across domains.
+      </p>
+    </section>
+
+    <section id="cite" class="block cite">
+      <h2>Citation</h2>
+      <p>Feiran You and Hongyang Du, The University of Hong Kong. <a href="https://arxiv.org/abs/2610.02922" target="_blank" rel="noopener">arXiv:2610.02922</a>.</p>
+      <pre id="bibtex"><code>@misc{you2026twinjepa,
+  title         = {TwinJEPA: Action-Preferred Predictive Representations for Goal-Conditioned Control},
+  author        = {You, Feiran and Du, Hongyang},
+  year          = {2026},
+  eprint        = {2610.02922},
+  archivePrefix = {arXiv},
+  primaryClass  = {eess.SY},
+  url           = {https://arxiv.org/abs/2610.02922}
+}</code></pre>
+      <button class="btn solid" id="copy-bib" type="button">Copy BibTeX</button>
+    </section>
+  </main>
+
+  <footer>
+    <p>TwinJEPA · <a href="https://arxiv.org/abs/2610.02922" target="_blank" rel="noopener">arXiv:2610.02922</a></p>
+  </footer>
+  <script src="main.js"></script>
+  <script src="bars.js?v=5"></script>
+  <script src="twin_geom.js?v=20" defer></script>
+</body>
+</html>
