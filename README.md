@@ -16,8 +16,7 @@
 </p>
 
 <p align="center">
-  TwinJEPA keeps the TD-JEPA backbone and adds offline-mined reward-gap<br>
-  and preference supervision, with no extra cost at inference.
+  TwinJEPA enhances joint-embedding predictive architectures with action-preference learning for offline zero-shot control.
 </p>
 
 <p align="center">
